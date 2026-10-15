@@ -6,7 +6,22 @@ from taskflow.models import Task
 from taskflow.storage import DATA_FILE, load_tasks, save_tasks
 from taskflow.validators import validate_due_date, validate_priority, validate_title
 
+STATUS_PENDING = "pending"
 STATUS_DONE = "done"
+VALID_STATUSES = (STATUS_PENDING, STATUS_DONE)
+SORT_OPTIONS = ("due", "priority")
+PRIORITY_ORDER = {"high": 0, "medium": 1, "low": 2}
+
+
+def _sort_tasks(tasks: list[Task], sort_by: str) -> list[Task]:
+    """Return the tasks sorted by due date or priority."""
+    if sort_by == "due":
+        return sorted(
+            tasks, key=lambda task: (task.due_date is None, task.due_date or "")
+        )
+    if sort_by == "priority":
+        return sorted(tasks, key=lambda task: PRIORITY_ORDER[task.priority])
+    raise ValueError("Sort must be one of: due, priority.")
 
 
 class TaskManager:
@@ -50,6 +65,38 @@ class TaskManager:
     def get_all(self) -> list[Task]:
         """Return a copy of all tasks."""
         return list(self.tasks)
+
+    def get_tasks(
+        self,
+        status: str | None = None,
+        priority: str | None = None,
+        keyword: str | None = None,
+        sort_by: str | None = None,
+    ) -> list[Task]:
+        """Return tasks filtered by status, priority and keyword, optionally sorted."""
+        tasks = self.get_all()
+        if status is not None:
+            status = status.strip().lower()
+            if status not in VALID_STATUSES:
+                raise ValueError("Status must be one of: pending, done.")
+            tasks = [task for task in tasks if task.status == status]
+        if priority is not None:
+            priority = validate_priority(priority)
+            tasks = [task for task in tasks if task.priority == priority]
+        if keyword is not None:
+            needle = keyword.strip().lower()
+            tasks = [
+                task
+                for task in tasks
+                if needle in task.title.lower() or needle in task.description.lower()
+            ]
+        if sort_by is not None:
+            tasks = _sort_tasks(tasks, sort_by)
+        return tasks
+
+    def get_by_id(self, task_id: int) -> Task:
+        """Return the task with the given id, or raise ValueError if missing."""
+        return self._find(task_id)
 
     def update(
         self,
