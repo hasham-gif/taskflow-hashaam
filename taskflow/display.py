@@ -1,10 +1,22 @@
 """Table formatting for TaskFlow."""
 
+from datetime import date
+
+from taskflow.manager import STATUS_PENDING
 from taskflow.models import Task
 
 HEADERS = ("ID", "Title", "Priority", "Due", "Status")
 EMPTY_VALUE = "-"
 COLUMN_GAP = "  "
+STATUS_OVERDUE = "OVERDUE"
+
+
+def is_overdue(task: Task, today: date | None = None) -> bool:
+    """Return True if the task is pending and its due date has passed."""
+    if task.status != STATUS_PENDING or task.due_date is None:
+        return False
+    today = today or date.today()
+    return task.due_date < today.isoformat()
 
 
 def _task_to_row(task: Task) -> tuple[str, ...]:
@@ -14,7 +26,7 @@ def _task_to_row(task: Task) -> tuple[str, ...]:
         task.title,
         task.priority,
         task.due_date or EMPTY_VALUE,
-        task.status,
+        STATUS_OVERDUE if is_overdue(task) else task.status,
     )
 
 
