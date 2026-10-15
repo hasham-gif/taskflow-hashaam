@@ -4,8 +4,7 @@ import argparse
 import sys
 
 from taskflow.display import format_table
-from taskflow.manager import TaskManager
-
+from taskflow.manager import SORT_OPTIONS, TaskManager
 
 def build_parser() -> argparse.ArgumentParser:
     """Create the argument parser with all supported commands."""
@@ -22,7 +21,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     add_parser.add_argument("--due", default=None, help="Due date (YYYY-MM-DD)")
 
-    subparsers.add_parser("list", help="List all tasks")
+    list_parser = subparsers.add_parser("list", help="List tasks")
+    list_parser.add_argument("--status", default=None, help="pending or done")
+    list_parser.add_argument(
+        "-p", "--priority", default=None, help="low, medium or high"
+    )
+    list_parser.add_argument(
+        "--sort", default=None, choices=SORT_OPTIONS, help="Sort by due or priority"
+    )
+
+    search_parser = subparsers.add_parser("search", help="Search tasks by keyword")
+    search_parser.add_argument("keyword", help="Word to look for in title or description")
 
     update_parser = subparsers.add_parser("update", help="Update an existing task")
     update_parser.add_argument("id", type=int, help="ID of the task to update")
@@ -47,7 +56,12 @@ def run_command(args: argparse.Namespace, manager: TaskManager) -> str:
         task = manager.add(args.title, args.description, args.priority, args.due)
         return f"Task {task.id} added: {task.title}"
     if args.command == "list":
-        return format_table(manager.get_all())
+        tasks = manager.get_tasks(
+            status=args.status, priority=args.priority, sort_by=args.sort
+        )
+        return format_table(tasks)
+    if args.command == "search":
+        return format_table(manager.get_tasks(keyword=args.keyword))
     if args.command == "update":
         task = manager.update(
             args.id, args.title, args.description, args.priority, args.due
